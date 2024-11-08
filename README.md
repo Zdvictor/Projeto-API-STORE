@@ -852,6 +852,12 @@ Esses valores permitem que você controle o status de cada pagamento de maneira 
     }
     ```
 
+---
+
+## 💎 Database Diagram
+
+![Diagrama do Projeto](https://github.com/Zdvictor/Projeto-API-STORE/blob/main/diagrama.jpg)
+
 
 
 
