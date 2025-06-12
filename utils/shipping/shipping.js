@@ -1,4 +1,4 @@
-const getCoordinates = require("./getCoOrdinates");
+const getCoordinates = require("./getCordinates");
 const calcDistance = require("./calcDistance");
 
 require("dotenv").config();
