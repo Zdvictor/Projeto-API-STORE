@@ -5,9 +5,23 @@ const AdressController = require("../controllers/AdressController")
 
 const AuthMiddleware = require("../middlewares/auth")
 
-router.post("/adress", AuthMiddleware, AdressController.adress)
-router.put("/adress", AuthMiddleware, AdressController.update)
-router.delete("/adress/:id", AuthMiddleware, AdressController.delete)
+//VALIDATORS
+const AdressValidator = require("../validators/adress/registerAdress")
+
+//GUARD
+const AdressGuard = require("../guards/adress/adressGuard")
+const UpdateAdressGuard = require("../guards/adress/updateGuardAdress")
+const DeleteGuard = require("../guards/adress/deleteAdressGuard")
+
+
+//MIDLEWARES
+const apiLimiter = require("../middlewares/rateLimiter")
+
+
+
+router.post("/adress", AuthMiddleware, AdressValidator, AdressGuard, AdressController.adress)
+router.put("/adress", apiLimiter,  AuthMiddleware, UpdateAdressGuard, AdressController.update)
+router.delete("/adress/:id", AuthMiddleware, DeleteGuard, AdressController.delete)
 
 
 module.exports = router

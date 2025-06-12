@@ -1,53 +1,43 @@
-const Recovery = require("../models/Recovery")
-const Users = require("../models/User")
-const UsersValidator = require("../validators/users")
-const mailer = require("../services/mail/mail")
+const RecoveryService = require("../services/RecoveryService")
+const mailer = require("../utils/mail/mail")
 
 class RecoveryController {
 
     async recovery(req,res) {
 
-        const email = req.body.email
+        const {email} = req.body
 
-        const emailExist = await Users.findByEmail(email)
+        try {
+
+            const data = await RecoveryService.SendRecovery(email)
+
+            mailer(data.user.name, email, data.code)
+
+            return res.status(200).json({message: "Codigo Enviado com sucesso", code: data.code})
 
 
-        if(!emailExist.status) {
+        }catch(err) {
 
-            return res.status(400).json({err: emailExist.err})
-
-        }
-
-        const name = emailExist.data[0].name
-
-        const result = await Recovery.SendRecovery(email)
-
-        if(result.status) {
-
-            mailer(name, email, result.code)
-            res.json({msg: result.msg, code: result.code})
-
-        }else {
-
-            res.status(500).json({err: result.err})
+            return res.status(500).json({err: err.message}) 
 
         }
 
     }
 
     async verify(req,res) {
+        
+        const {code,email} = req.body
+    
+        try {
 
-        const code = req.body.code
+            await RecoveryService.verifyCode(code,email)
 
-        const result = await Recovery.verifyCode(code)
+            return res.status(200).json({message: "Codigo Valido"})
 
-        if(result.status) {
 
-            res.json({msg: result.msg})
+        }catch(err) {
 
-        }else {
-
-            res.status(500).json({err: result.err})
+            return res.status(500).json({err: err.message})
 
         }
     }
@@ -57,30 +47,24 @@ class RecoveryController {
 
         const {code, newPassword} = req.body
 
-        const isWeakPassword =  UsersValidator.validatePassword(newPassword)
+        try {
 
-        if(!isWeakPassword.status) {
+            await RecoveryService.changePassword(code,newPassword)
 
-            return res.status(400).json({err: isWeakPassword.msg})
+            return res.status(200).json({message: "Senha Alterada com sucesso"})
 
-        }
+        }catch(err) {
 
-        const result = await Recovery.changePassword(code, newPassword)
+            return res.status(500).json({err: err.message})
 
-        if(result.status) {
-
-            res.json({msg: result.msg})
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
-
+         }
 
     }
 
 }
+
+    
+
 
 
 module.exports = new RecoveryController()

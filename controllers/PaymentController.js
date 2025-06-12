@@ -1,5 +1,11 @@
 const {CardToken, MercadoPagoConfig, Payment, PaymentMethod, Preference}  = require('mercadopago');
-const PaymentModel = require("../models/Payment")
+const PaymentService = require("../services/PaymentService");
+const PaymentPayload = require('../utils/payment/paymentPayload');
+const PaymentLinks = require('../utils/payment/paymentLinks');
+const CalcShipping = require('../utils/shipping/shipping');
+const {getIo} = require("../utils/socket/socketManager");
+console.log(getIo)
+
 require('dotenv').config();
 
 const token = process.env.MP_TOKEN
@@ -16,90 +22,84 @@ class PaymentController {
 
     async FindOrders(req,res) {
 
-      const id = req.params.id
+        const {id} = req.params
 
-      if(req.user.id !== Number(id)) {
+        try {
 
-        return res.status(403).json({err: "Não e Possivel Procurar Pedidos De outros Usuarios!"})
+            const payments = await PaymentService.FindOrder(id)
 
-    }      
+            console.log("payments")
 
-      const result = await PaymentModel.FindAllOrders(id)
+            return res.status(200).json(payments)
 
-      if(result.status) {
 
-        res.json(result.orders)
+        }catch(err) {
 
-      }else {
 
-        res.status(500).json({err: result.err})
+            return res.status(500).json({err: err.message})
 
-      }
+        }
 
     }
 
     async Payment(req,res) {
 
-      const {idUser,idProduct} = req.body
+      const {idUser, products, cellphone, cepDestination, coupon} = req.body
+
+      try {
+
+        let totalPrice = 0;
+        let totalQtd = 0
+
+        const productDataPromises = products.map(async (product) => {
+
+          let prod = await PaymentService.FindDataForOrder(product.id_user, product.id_product)
+          prod.product.id_product = product.id_product
+          prod.product.qtd = product.qtd
+          prod.product.size = product.size
+
+          totalPrice += Number((prod.product.price * product.qtd).toFixed(2))
+          totalQtd += product.qtd
+
+          return prod
+
+        })
 
 
-        if(req.user.id !== Number(idUser)) {
+        //AGUARDA AS PROMISE LA DE CIMA E AQUI RETORNA AS PROMISES LA DE CIMA RESOLVIDAS
+        const productsData = await Promise.all(productDataPromises)
 
-            return res.status(403).json({err: "Não e Possivel Criar Pedidos Para outros Usuarios!"})
+        console.log(productsData)
 
-        }      
+        let shipping = await CalcShipping(cepDestination)
+        
+        console.log(`Valor Do Frete e ${shipping}`)
 
-      const haveAdress = await PaymentModel.HaveAdress(idUser)
+        totalPrice = coupon === "FREESHIP" ? 
+          Number(totalPrice.toFixed(2)) : 
+          Number((totalPrice + shipping).toFixed(2))
 
-      if(!haveAdress.status) {
+        console.log(`Valor Total e ${totalPrice}`)
 
-        return res.status(500).json({err: haveAdress.err})
+        const email = productsData[0].email
+
+        const paymentRequest = PaymentPayload(email, totalPrice)
+
+        const transaction = await payment.create({body: paymentRequest}) 
+
+        const {qrCode, qrCodeBase64, urlPayment} = PaymentLinks(transaction)
+
+        await PaymentService.CreateOrder({idOrder: transaction.id, idUser, productsData, qrCode, qrCodeBase64, urlPayment, totalPrice, cellphone})
+            
+        return res.status(200).json({message: "Pedido Criado com sucesso", id: transaction.id, qrCode: qrCode, qrCodeBase64: qrCodeBase64, url: urlPayment, totalPrice: totalPrice})
+
+      }catch(err) {
+
+        console.log(err)
+        return res.status(500).json({err: err.message})
 
       }
 
-      const objectData = await PaymentModel.FindDataForOrder(idUser, idProduct)
-      
-      const {email} = objectData.data
-      const {price, description} = objectData.data.product
-
-
-        const body = {
-
-          transaction_amount: price,
-          description: description,
-          payment_method_id: "pix",
-          payer: {
-          
-            email: email
-
-          },
-          
-        }
-
-        try {
-
-          const result = await payment.create({body}) 
-
-          const url = result.point_of_interaction.transaction_data.ticket_url
-
-          const paymentDb = await PaymentModel.CreateOrder(result.id, idUser,idProduct,url)
-          
-          if(paymentDb.status) {
-            
-            res.json({msg: paymentDb.msg, id: result.id, result: url})
-
-          }else {
-
-            res.status(500).json({err: paymentDb.err})
-
-          }
-
-        }catch(err) {
-
-          res.status(500).json({err: "Erro ao Criar o Pagamento"})
-          console.log(err)
-
-        }
 
     }
 
@@ -109,23 +109,15 @@ class PaymentController {
 
       try {
 
-        const response = await payment.cancel({ id });
-        const paymentDb = await PaymentModel.CancelOrder(id)
+        await payment.cancel({ id });
+        await PaymentService.CancelOrder(id)
         
-        if(paymentDb.status) {
-
-          res.json(paymentDb.msg)
-
-        }else {
-
-          res.status(500).json({err: paymentDb.err})
-
-        }
+        return res.status(200).json({message: "Pedido Cancelado com sucesso"})
 
       } catch (err) {
 
         console.log(err)
-        res.status(500).json({ err: "Pagamento Não Encontrado Para Ser Cancelado" });
+        return res.status(500).json({err: err.message})
 
       }
 
@@ -135,15 +127,16 @@ class PaymentController {
 
       const id = req.params.id
 
-      const result = await PaymentModel.DeleteOrder(id)
+      try {
 
-      if(result.status) {
+        await PaymentService.DeleteOrder(id)
 
-        res.json(result.msg)
+        return res.status(200).json({message: "Pedido Removido com sucesso"})
 
-      }else {
 
-        res.status(500).json(result.err)
+      }catch(err) {
+
+        return res.status(500).json({err: err.message})
 
       }
 
@@ -151,29 +144,25 @@ class PaymentController {
 
     async Notification(req,res) {
 
-      const { id } = req.body.data
-      const action = req.body.action
-      const type = req.body.type
+      const {data, action, type} = req.body
 
-      if(action == "payment.updated") {
+      try {
 
-        if(type == "payment") {
+        if(type === "payment" && action == "payment.updated") {
 
-          var result = await PaymentModel.PaidOrder(id)
-
-          if(result.status) {
-
-            res.json("Pago Com Sucesso")
+            await PaymentService.PaidOrder(data.id)
+            const io = getIo()
+            io.emit("payment_success", data.id)
+            return res.status(200).json({message: "Pedido Pago com sucesso"})
             
-
-          }else {
-
-            res.status(500).json({err: "Erro no Pagamento"})
-
-
-          }
-
         }
+
+        return res.status(400).json({ message: "Ação ou tipo inválido." });
+
+      }catch(err) {
+
+        console.log(err)
+        return res.status(500).json({err: err.message})
 
       }
 

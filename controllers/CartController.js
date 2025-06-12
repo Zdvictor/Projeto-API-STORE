@@ -1,4 +1,4 @@
-const Cart = require("../models/Cart")
+const CartService = require("../services/CartService")
 
 class CartController {
 
@@ -6,70 +6,75 @@ class CartController {
 
         const id = req.params.id
 
-        if(req.user.id !== Number(id)) {
+        try {
 
-            return res.status(403).json({err: "Não e Possivel Ver Carrinho de Outra Pessoa!"})
+            const product = await CartService.ViewProduct(id)
 
-        }     
+            return res.status(200).json(product)
 
-        const result = await Cart.ViewProduct(id)
+        }catch(err) {
 
-        if(result.status) {
+            return res.status(500).json({err: err.message}) 
 
-            res.json({msg: result.msg, products: result.products})
-
-        }else {
-
-            res.status(500).json({err: result.err, products: result.products})
-            
         }
 
     }
 
     async register(req,res) {
 
-        const {idUser, idProduct} = req.body
+        const {idUser, idProduct, size, qtd} = req.body
 
-        if(req.user.id !== Number(idUser)) {
+        try {
 
-            return res.status(403).json({err: "Não e Possivel Inserir Produtos no Carrinho Para outros Usuarios!"})
+            await CartService.RegisterProduct(idUser,idProduct, size, qtd)
 
-        }  
+            return res.status(200).json({msg: "Produto Adicionado ao Carrinho"})
 
-        const result = await Cart.RegisterProduct(idUser, idProduct)
 
-        if(result.status) {
+        }catch(err) {
 
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
+            return res.status(500).json({err: err.message})
+            
         }
 
 
     }
 
+    async update(req,res) {
+
+        const {id, qtd} = req.body
+
+        console.log("Passou aqui")
+
+        try {
+
+            await CartService.UpdateProduct(id,qtd)
+
+            return res.status(200).json({msg: "Quantidade de Produto Atualizado"})
+
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
+
+        }
+
+    }
+
     async delete(req,res) {
 
-        const {idUser, idProduct} = req.body
+        const {id} = req.params
 
-        if(req.user.id !== Number(idUser)) {
+        try {
 
-            return res.status(403).json({err: "Não e Possivel Inserir Produtos no Carrinho Para outros Usuarios!"})
+            await CartService.DeleteProduct(id)
 
-        }  
+            return res.status(200).json({msg: "Produto Removido do Carrinho"})
 
-        var result = await Cart.DeleteProduct(idUser,idProduct)
 
-        if(result.status) {
+        }catch(err) {
 
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json(result.err)
+            return res.status(500).json({err: err.message})
 
         }
     }

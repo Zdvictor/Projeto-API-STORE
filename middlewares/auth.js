@@ -5,6 +5,7 @@ const secretKey = process.env.JWT_SECRET
 
 module.exports = function AuthMiddleware(req,res,next) {
 
+    
     const token = req.cookies.token
 
     if(!token) {
@@ -19,7 +20,6 @@ module.exports = function AuthMiddleware(req,res,next) {
         const decoded = jwt.verify(token, secretKey)
 
         req.user = decoded
-
         next()
 
 

@@ -1,6 +1,6 @@
-const app = require("./index")
+const { server } = require("./index")
 
-app.listen(8080, () => {
+server.listen(8080, () => {
 
     console.log("Servidor Iniciado com Sucesso")
 

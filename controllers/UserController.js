@@ -1,161 +1,143 @@
-const User = require("../models/User")
-const UsersValidator = require("../validators/users")
-const createJWT = require("../services/jwt/jwt")
-
-
+const UserService = require("../services/UserService");
+const createJWT = require("../utils/jwt/jwt");
+const generateCookie = require("../utils/cookie/generate");
 
 class UserController {
+  async profile(req, res) {
 
-    async profile(req,res) {
+    console.log(req.user)
+    return res.status(200).json(req.user)
 
+  }
 
-        res.json(req.user)
-
-    }
-
-    async login(req,res) {
-
-        const {email,password} = req.body
-        
-        const result = await User.signin(email,password)
-
-        if(result.status) {
-
-            const token = await createJWT(result)
-
-            res.cookie("token", token, {httpOnly: true, secure: true, sameSite: 'strict' })
-            res.json({msg: result.msg, token: token})
-          
-
-        }else {
-
-            res.status(401).json({err: result.err})
-
-        }
-
-    }
-
-    async register(req,res) {
-
-        const {name,cpf,email,password} = req.body
-        const isValid = await UsersValidator.validate({name, cpf, email,password})
-
-        if(!isValid.status) {
-            
-            return res.status(400).json({err: isValid.err})
-
-        }
-
-        const result = await User.signup(name,cpf,email,password)
-
-        if(result.status) {
-            
-            const token = await createJWT(result)
-
-            res.cookie("token", token, {httpOnly: true, secure: true, sameSite: 'strict' })
-
-            res.json({msg: result.msg})
-            
+  async login(req, res) {
     
-            
+    const { email, password } = req.body
 
-        }else {
 
-            res.status(401).json({err: result.err})
+    try {
+      const user = await UserService.signin(email, password)
+      console.log(user)
+      const token = createJWT(user)
 
-        }
+      generateCookie(res, token)
+
+      return res.status(200).json({ message: "Login realizado com sucesso", data: user })
+
+    } catch (err) {
+
+      return res.status(401).json({ err: err.message })
 
     }
+  }
 
+  async register(req, res) {
+
+    const { name, cpf, email, password, birthAt, hasValidated, isGoogle } = req.body
+
+    console.log(req.body)
+
+    try {
+
+      const user = await UserService.signup(name, cpf, email, password, birthAt,hasValidated, isGoogle)
+
+      const token = createJWT(user)
+
+      generateCookie(res, token)
+
+      return res.status(201).json({ message: "Cadastro realizado com sucesso", data: user.data })
+
+    } catch (err) {
+      return res.status(400).json({ err: err.message })
+    }
+  }
+
+  async upload(req, res) {
+
+    const id = req.params.id
+
+    const imagePath = req.file.path
+    const path = imagePath.split("\\").pop()
+
+    console.log("Passou aqui")
+
+    try {
+
+      await UserService.uploadImage(id, path)
+      return res.status(200).json({ message: "Imagem salva com sucesso"})
+
+    } catch (err) {
+
+      return res.status(500).json({ err: err.message })
+
+    }
+  }
+
+  async update(req, res) {
+
+    const {currentlyEmail, name, birthat} = req.body
+
+    try {
+
+      const user = await UserService.update(currentlyEmail, name, birthat)
+      const token = createJWT(user)
+      generateCookie(res, token)
+      return res.status(200).json({ message: "Usuário atualizado com sucesso" })
+
+    } catch (err) {
+      return res.status(500).json({ err: err.message })
+    }
+  }
+
+  async delete(req, res) {
     
-    async upload(req,res) {
+    const { email } = req.body;
 
-        const id = req.params.id
+    try {
 
-        if(req.user.id !== Number(id) ) {
+      await UserService.deleteByEmail(email)
 
-            return res.status(403).json({err: "Usuario Não Pode Atualizar Foto de Outro Usuario"})
+      res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "strict" })
 
-        }
+      return res.status(200).json({ message: "Usuário deletado com sucesso" })
 
-        const imagePath = req.file.path
-        const path = imagePath.split('\\').pop()
+    } catch (err) {
 
-        const result = await User.UploadImage(id,path)
-
-        if(result.status) {
-
-            res.json({msg: result.msg, file: path})
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
-
-        
-
+      return res.status(400).json({ err: err.message })
 
     }
 
+  }
 
-    async update(req,res) {
-        
-        const {emailAtual, name} = req.body
+  async change(req,res) {
 
-        if(emailAtual !== req.user.email) {
-            
-            return res.status(403).json({err: "Usuario Não Pode Atualizar Outro Usuario"})
+    const {currentlyEmail, oldPassword, newPassword} = req.body
 
-        }
+    try {
 
-        const isValid = await UsersValidator.validate({emailAtual, name})
+      const user = await UserService.changePassword(currentlyEmail, oldPassword, newPassword)
+      
+      const token = createJWT(user)
 
-        if(!isValid.status) {
+      generateCookie(res, token)
 
-            return res.status(400).json({err: isValid.err})
+      return res.status(200).json({message: "Senha Alterada com sucesso"})
 
-        }
-        
-        const result = await User.update(emailAtual,name)
 
-        if(result.status) {
+    }catch(err) {
 
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
-    }
-
-    async delete(req,res) {
-    
-        const email = req.body.email
-
-        if(email !== req.user.email) {
-            
-            return res.status(403).json({err: "Usuario Não Pode Deletar Outro Usuario"})
-
-        }
-
-        const result = await User.deleteByEmail(email)
-
-        if(result.status) {
-
-            res.clearCookie("token", { httpOnly: true, secure: true, sameSite: 'strict'  })
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
+      return res.status(500).json({err: err.message})
 
     }
 
+  }
 
+  logout(req, res) {
+
+    res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "strict" })
+
+    return res.status(200).json({ message: "Logout efetuado com sucesso!" })
+  }
 }
 
 module.exports = new UserController()

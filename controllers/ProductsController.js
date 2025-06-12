@@ -1,161 +1,169 @@
-const Products = require("../models/Products")
-const ProductsValidator = require("../validators/products")
+const ProductsService = require("../services/ProductsService")
 
-//ID ADM
-const adm = 123
 
 class ProductsController {
 
     async all(req,res) {
 
-        const result = await Products.AllProducts()
+        try {
 
-        if(result.status) {
+            const products = await ProductsService.AllProducts()
 
-            res.json({products: result.products})
-            
-        }else {
+            return res.status(200).json(products)
 
-            res.status(500).json({err: result.err})
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
 
         }
 
     }
 
+    async find(req,res) {
+
+        const { id }   = req.params
+
+        try {
+
+            const product = await  ProductsService.FindOne(id)
+
+            return res.status(200).json(product)
+
+        }catch(err) {
+
+            console.log(err)
+            return res.status(500).json({err: err.message})
+        }
+
+    }
+
+    async findBySlug(req,res) {
+
+        const { slug } = req.params
+
+        try {
+
+            const product = await ProductsService.FindBySlug(slug)
+            console.log("Passou aqui slug")
+            console.log(product)
+            return res.status(200).json(product)
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
+
+        }
+    }
+
+    async offers(req,res) {
+
+        try {
+
+            const products = await ProductsService.AllOffers()
+
+            return res.status(200).json(products)
+
+
+        }catch(err) {
+
+
+            return res.status(500).json({err: err.message})
+
+        }
+
+    }
+
+    async lendary(req,res) {
+
+        try {
+
+            const products = await ProductsService.AllLendarysJerseys()
+
+            return res.status(200).json(products)
+
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
+
+        }
+    }
+
     async register(req,res) {
 
         const {name,description,price} = req.body
-        
+    
+        try {
 
-        if(req.user.id !== adm) {
+            const id = await ProductsService.SaveProducts(name,description,price)
+            return res.status(200).json({msg: "Produto Cadastrado com sucesso", id: id})
 
-            return res.status(403).json({err: "Somente Administradores Podem Registrar Novos Produtos!"})
+        }catch(err) {
 
-        }
-
-        const validator = ProductsValidator.validator(name,description)
-
-        if(!validator.status) {
-
-            return res.status(400).json({err: result.err})
+            return res.status(500).json({err: err.message})
 
         }
-        
 
-        const result = await Products.SaveProducts(name,description,price)
+    }
 
-        if(result.status) {
+    async upload(req,res) {
 
-            res.json({msg: result.msg, id: result.id})
+        const {id} = req.params
 
-        }else {
+        const imagePath = req.file.path
+        const path = imagePath.split('\\').pop()
 
-            res.status(500).json({err: result.err})
-            
+        try {
+
+            await ProductsService.UploadImage(id,path)
+            return res.status(200).json({msg: "Imagem salva com sucesso"})
+
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
+
         }
-
 
 
     }
 
     async update(req,res) {
 
-        const id = req.params.id
+        const {id} = req.params
 
+        const {name,description,price} = req.body
 
-        if(req.user.id !== adm) {
+        try {
 
-            return res.status(403).json({err: "Somente Administradores Podem Atualizar Produtos!"})
+            await ProductsService.EditProducts(id,name,description,price)
+            return res.status(200).json({msg: "Produto Atualizado com sucesso"})
 
-        }
-        
+        }catch(err) {
 
-        if(isNaN(id)) {
-
-            return res.status(400).json({err: "Id invalido"})
-            
-        }
-
-        const {name,description,price,image} = req.body
-
-        const validator = ProductsValidator.validator(name,description)
-
-        if(!validator.status) {
-
-            return res.status(400).json({err: validator.err})
- 
-        }
-
-
-        const result = await Products.EditProducts(id,name,description,price,image)
-
-        if(result.status) {
-
-            res.json(result.msg)
-
-        }else {
-
-            res.status(400).json({err: result.err})
+            return  res.status(500).json({err: err.message})
 
         }
-
-
 
     }
 
     async delete(req,res) {
 
         const id = req.params.id
+        
+        try {
 
-        if(req.user.id !== adm) {
+            await ProductsService.removeProducts(id)
+            return res.status(200).json({msg: "Produto Removido com sucesso"})
 
-            return res.json(403).json({err: "Somente Administradores Podem Apagar Produtos!"})
+
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
 
         }
         
-
-        const result = await Products.removeProducts(id)
-
-        if(result.status) {
-
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
-
-        
-
-    }
-
-    async upload(req,res) {
-
-        const id = req.params.id
-
-
-        if(req.user.id !== adm) {
-
-            return res.status(403).json({err: "Somente Administradores Podem Alterar Fotos de Produtos!"})
-
-        }        
-
-        const imagePath = req.file.path
-        const path = imagePath.split('\\').pop()
-
-        const result = await Products.UploadImage(id,path)
-
-        if(result.status) {
-
-            res.json({msg: result.msg, file: path})
-
-        }else {
-
-            res.status(500).json({err: result.err})
-
-        }
-
 
     }
 

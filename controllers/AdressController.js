@@ -1,36 +1,35 @@
-const Adress = require("../models/Adress")
-const AdressValidator = require("../validators/adress")
+const AdressService = require("../services/AdressService")
+const UserService = require("../services/UserService")
+const createJWT = require("../utils/jwt/jwt")
+const generateCookie = require("../utils/cookie/generate")
 
+
+//RELOGAR O USUARIO QUANDO REGISTRAR OU ALTERAR UM ENDERECO (GERAR NOVO TOKEN JWT E COOKEI PARA O USUARIO NO FRONT-END)
+//FAZER UMA LOGICA SE USUARIO JA TIVER ENDERECO JOGA NO UPDATE SE NAO JOGA NO CRIAR NOVO ENDERECO PARA NAO PESAR NO DB
 
 class AdressController {
 
     async adress(req,res) {
 
-        const {idUser, number,neighborhood,street,city,state,cep} = req.body
+        const {id, number,neighborhood,street,city,state,cep} = req.body
 
-        if(req.user.id !== Number(idUser)) {
+        try {
+            
+            const data = await AdressService.AddAdress(id, number,neighborhood,street,city,state,cep)
 
-            return res.status(403).json({err: "Não e Possivel Adicionar Endereço para Outro Usuario!"})
+            const user = await UserService.dataUser(data.email)
 
-        }  
-        
-        const AdressIsValid = await AdressValidator.verify(number,neighborhood,street,city,state,cep)
+            console.log(user)
 
-        if(!AdressIsValid) {
+            const token = createJWT(user)
 
-            return res.status(400).json({err: "Dados Inválidos Verifique Se Não Tem Campo Vazio ou CEP Inválidos"})
+            generateCookie(res, token)
 
-        }
+            return res.status(200).json({msg: "Endereço Cadastrado Com Sucesso"})
 
-        const result = await Adress.AddAdress(idUser, number,neighborhood,street,city,state,cep)
+        }catch(err) {
 
-        if(result.status) {
-
-            res.json({msg: result.msg, idAdress: result.id})
-
-        }else {
-
-            res.status(500).json({err: result.err})
+            return res.status(500).json({err: err.message})
 
         }
 
@@ -38,24 +37,25 @@ class AdressController {
 
     async update(req,res) {
 
-        const {idUser, number,neighborhood,street,city,state,cep} = req.body
+        const {id, number,neighborhood,street,city,state,cep} = req.body
 
-        if(req.user.id !== Number(idUser)) {
+        try {
 
-            return res.status(403).json({err: "Não e Possivel Atualizar Endereço De Outro Usuario!"})
+            const data = await AdressService.UpdateAdress(id, number,neighborhood,street,city,state,cep)
+    
+            const user = await UserService.dataUser(data.email)
 
-        }  
-        
+            const token = createJWT(user)
 
-        const result = await Adress.UpdateAdress(idUser, number,neighborhood,street,city,state,cep)
+            generateCookie(res, token)
 
-        if(result.status) {
 
-            res.json({msg: result.msg, idAdress: result.id})
+            return res.status(200).json({msg: "Endereço Atualizado Com Sucesso"})
 
-        }else {
 
-            res.status(500).json({err: result.err})
+        }catch(err) {
+
+            return res.status(500).json({err: err.message})
 
         }
 
@@ -65,21 +65,16 @@ class AdressController {
 
         const id = req.params.id
 
-        if(req.user.id !== Number(id)) {
+        try {
 
-            return res.status(403).json({err: "Não e Possivel Remover Endereço De Outro Usuario!"})
+            await AdressService.RemoveAdress(id)
 
-        }  
+            return res.status(200).json({msg: "Endereço Removido Com Sucesso"})
 
-        const result = await Adress.RemoveAdress(id)
 
-        if(result.status) {
+        }catch(err) {
 
-            res.json(result.msg)
-
-        }else {
-
-            res.status(500).json({err: result.err})
+            return res.status(500).json({err: err.message}) 
 
         }
 
