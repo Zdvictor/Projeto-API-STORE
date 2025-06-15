@@ -15,9 +15,13 @@ class AuthGoogleController {
 
                 const token = createJWT(dataUser)
 
-                res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "strict" })
+                res.cookie("token", token, { 
+                    httpOnly: true, 
+                    secure: true, 
+                    sameSite: "none" 
+                });
 
-                console.log(req.cookie.token)
+                console.log(req.cookies.token)
 
                 return res.redirect(`${process.env.FRONTEND_URL}/`)
 
@@ -28,10 +32,10 @@ class AuthGoogleController {
 
             console.log(err)
             res.cookie("shirtstore_user", JSON.stringify({ name: user.name.familyName, email: user.email }), {
-                httpOnly: false,
+                httpOnly: false, 
                 secure: true, 
-                sameSite: "strict"
-              });
+                sameSite: "none" 
+            });
             return res.redirect(`${process.env.FRONTEND_URL}/register`)
 
             

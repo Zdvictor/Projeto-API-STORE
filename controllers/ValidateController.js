@@ -40,7 +40,11 @@ class ValidateController {
             const token = createJWT(user)
             console.log(token)
 
-            res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "strict" })
+            res.cookie("token", token, { 
+                httpOnly: true, 
+                secure: true, 
+                sameSite: "none" 
+            });
 
             return res.status(200).json({message: "Email validado com sucesso"})
 
