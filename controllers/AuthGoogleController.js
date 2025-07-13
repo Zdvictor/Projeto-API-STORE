@@ -31,7 +31,7 @@ class AuthGoogleController {
         } catch(err) {
 
             console.log(user)
-            const name = user?.name?.familyName || user?.displayName || "Usuário";
+            const name = user?.name?.givenName || user?.name?.familyName || user?.displayName || "Usuário";
             const email = user?.email;
 
             return res.redirect(`${process.env.FRONTEND_URL}/register?name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`);
