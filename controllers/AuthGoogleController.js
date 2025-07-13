@@ -30,13 +30,7 @@ class AuthGoogleController {
             
         } catch(err) {
 
-            console.log(err)
-            res.cookie("shirtstore_user", JSON.stringify({ name: user.name.familyName, email: user.email }), {
-                httpOnly: false, 
-                secure: true, 
-                sameSite: "none" 
-            });
-            return res.redirect(`${process.env.FRONTEND_URL}/register`)
+            return res.redirect(`${process.env.FRONTEND_URL}/register?name=${encodeURIComponent(user.name.familyName)}&email=${encodeURIComponent(user.email)}`);
 
             
         }
