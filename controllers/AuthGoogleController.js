@@ -30,6 +30,7 @@ class AuthGoogleController {
             
         } catch(err) {
 
+            console.log(user)
             const name = user?.name?.familyName || user?.displayName || "Usuário";
             const email = user?.email;
 
