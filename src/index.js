@@ -11,11 +11,14 @@ const socketManager = require("../utils/socket/socketManager")
 const path = require("path")
 
 app.use(cors({
-
-    origin: "http://localhost:5173", 
+    origin: [
+      "http://localhost:5173", // desenvolvimento local
+      "https://projeto-shirt-store-react.vercel.app", // domínio principal Vercel
+      "https://shirtstorebr.vercel.app" // domínio alternativo/personalizado
+    ],
     credentials: true
-
 }))
+  
 
 
 app.use(cookieParser())
